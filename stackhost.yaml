@@ -1,1 +1,20 @@
+user:
+  name: Rezy
+  github: Rezy-TheCelestial
 
+language: "python"
+python_version: "3.10"
+
+commands:
+  build:
+    - "pip install -r requirements.txt"
+  package:
+    - "nano inxi"
+  start:
+    - "python3 done.py"
+
+env:
+  ENVIRONMENT: "production"
+
+
+  
