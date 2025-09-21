@@ -1108,9 +1108,10 @@ app.add_handler(CommandHandler("get_chat_id", banned_handler(get_chat_id)))
 app.add_handler(CommandHandler("set_chat", banned_handler(set_chat)))
 app.add_handler(CommandHandler("show_chat", banned_handler(show_chat)))
 
-    print("🤖 Bot is running...")
-    app.run_polling()
+print("🤖 Bot is running...")
+app.run_polling()
 
 if __name__ == "__main__":
 
     main()
+
