@@ -609,8 +609,16 @@ async def msg_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Failed to send message: {e}")
 
+  # replace with your Telegram user ID
+
 async def bot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text("❌ You are not authorized to use this command.")
+        return
+
     from datetime import datetime, timedelta, timezone
+    import psutil, time
+
     process = psutil.Process()
 
     # ✅ Global users collection
@@ -637,7 +645,7 @@ async def bot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Activity
     log_collection = db["logs"]
-    now = datetime.now(timezone.utc)   # ✅ safe everywhere
+    now = datetime.now(timezone.utc)
     last_24h = log_collection.count_documents({"time": {"$gte": now - timedelta(hours=24)}})
     last_7d = log_collection.count_documents({"time": {"$gte": now - timedelta(days=7)}})
 
@@ -1067,45 +1075,42 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).post_init(send_startup_message).build()
 
     # Account login
-    app.add_handler(CommandHandler("start", banned_handler(start)))
-    app.add_handler(CommandHandler("login", banned_handler(login)))
-    app.add_handler(CommandHandler("otp", banned_handler(otp)))
-    app.add_handler(CommandHandler("password", banned_handler(password)))
-    # Add these new handlers after your existing command handlers:
-    app.add_handler(CommandHandler("solo_start", banned_handler(solo_start)))
-    app.add_handler(CommandHandler("solo_stop", banned_handler(solo_stop)))
-    
-    # ... rest of your main function ...
-    # Wrap /accounts with banned_handler to block banned users
-    app.add_handler(CommandHandler("accounts", banned_handler(accounts)))
-    app.add_handler(CommandHandler("change_acc", banned_handler(change_acc)))
-    app.add_handler(CommandHandler("order", banned_handler(order)))
-    app.add_handler(CommandHandler("banlist", banned_handler(banlist)))
+    # Core commands
+app.add_handler(CommandHandler("start", banned_handler(start)))
+app.add_handler(CommandHandler("login", banned_handler(login)))
+app.add_handler(CommandHandler("otp", banned_handler(otp)))
+app.add_handler(CommandHandler("password", banned_handler(password)))
+app.add_handler(CommandHandler("solo_start", banned_handler(solo_start)))
+app.add_handler(CommandHandler("solo_stop", banned_handler(solo_stop)))
+app.add_handler(CommandHandler("accounts", banned_handler(accounts)))
+app.add_handler(CommandHandler("change_acc", banned_handler(change_acc)))
+app.add_handler(CommandHandler("order", banned_handler(order)))
+app.add_handler(CommandHandler("banlist", banned_handler(banlist)))
+app.add_handler(CommandHandler("logout", banned_handler(logout)))
+app.add_handler(CommandHandler("bot_stats", banned_handler(bot_stats)))
 
-    # Callback query handler for pagination buttons
-    app.add_handler(CallbackQueryHandler(accounts_callback, pattern="^accounts_"))
-    app.add_handler(CommandHandler("logout", banned_handler(logout)))
+# Callback query handler (cannot wrap with banned_handler, handle inside callback if needed)
+app.add_handler(CallbackQueryHandler(accounts_callback, pattern="^accounts_"))
 
-    # Admin
-    app.add_handler(CommandHandler("auth", auth))
-    app.add_handler(CommandHandler("unauth", unauth))
-    app.add_handler(CommandHandler("authlist", authlist))
-    app.add_handler(CommandHandler("ban", ban))
-    app.add_handler(CommandHandler("unban", unban))
-    app.add_handler(CommandHandler("board", board))
-    app.add_handler(CommandHandler("msg", msg_user))
-    app.add_handler(CommandHandler("bot_stats", banned_handler(bot_stats)))
-    
-    # Hunting commands
-    app.add_handler(CommandHandler("start_all", start_all))
-    app.add_handler(CommandHandler("stop_all", stop_all))
-    app.add_handler(CommandHandler("get_chat_id", get_chat_id))
-    
-    app.add_handler(CommandHandler("set_chat", set_chat))
-    app.add_handler(CommandHandler("show_chat", show_chat))
+# Admin commands
+app.add_handler(CommandHandler("auth", banned_handler(auth)))
+app.add_handler(CommandHandler("unauth", banned_handler(unauth)))
+app.add_handler(CommandHandler("authlist", banned_handler(authlist)))
+app.add_handler(CommandHandler("ban", banned_handler(ban)))
+app.add_handler(CommandHandler("unban", banned_handler(unban)))
+app.add_handler(CommandHandler("board", banned_handler(board)))
+app.add_handler(CommandHandler("msg", banned_handler(msg_user)))
+
+# Hunting commands
+app.add_handler(CommandHandler("start_all", banned_handler(start_all)))
+app.add_handler(CommandHandler("stop_all", banned_handler(stop_all)))
+app.add_handler(CommandHandler("get_chat_id", banned_handler(get_chat_id)))
+app.add_handler(CommandHandler("set_chat", banned_handler(set_chat)))
+app.add_handler(CommandHandler("show_chat", banned_handler(show_chat)))
 
     print("🤖 Bot is running...")
     app.run_polling()
 
 if __name__ == "__main__":
+
     main()
