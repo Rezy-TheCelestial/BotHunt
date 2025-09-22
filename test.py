@@ -1129,7 +1129,6 @@ async def names(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "📌 Updated names from Telegram:\n\n" + "\n".join(updated_lines)
             )
-# ---------------- Main ---------------- #
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).post_init(send_startup_message).build()
 
@@ -1166,15 +1165,11 @@ def main():
     app.add_handler(CommandHandler("get_chat_id", banned_handler(get_chat_id)))
     app.add_handler(CommandHandler("set_chat", banned_handler(set_chat)))
     app.add_handler(CommandHandler("show_chat", banned_handler(show_chat)))
-app.add_handler(CommandHandler("names", banned_handler(names)))
+            app.add_handler(CommandHandler("names", banned_handler(names)))
 
-print("🤖 Bot is running...")
-app.run_polling()
+    print("🤖 Bot is running...")
+    app.run_polling()
 
 if __name__ == "__main__":
 
     main()
-
-
-
-
