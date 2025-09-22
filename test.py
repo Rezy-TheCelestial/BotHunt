@@ -1070,6 +1070,65 @@ async def show_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🔔 Account {acc_number} uses notify gc: `{notify_chat_id}`",
         parse_mode="Markdown"
     )
+async def fetch_name_live(acc):
+    """Fetch name from Telegram (live) and update cache"""
+    acc_name = acc.get("account")
+    session_string = acc.get("session")
+    try:
+        app = Client(":memory:", api_id=API_ID, api_hash=API_HASH, session_string=session_string)
+        await app.start()
+        me = await app.get_me()
+        await app.stop()
+        tg_name = f"{me.first_name} {me.last_name or ''}".strip()
+        
+        # Update in DB
+        col = acc.get("db_col")
+        if col is not None:
+            col.update_one({"account": acc_name}, {"$set": {"tg_name": tg_name}})
+        
+        return acc_name, tg_name
+    except Exception as e:
+        print(f"❌ Failed to fetch name for {acc_name}: {e}")
+        return acc_name, None
+
+
+async def names(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    col = user_collection(user_id)
+    accounts = list(col.find({}))
+    if not accounts:
+        await update.message.reply_text("No accounts found ❌")
+        return
+
+    # Add collection reference
+    for acc in accounts:
+        acc["db_col"] = col
+
+    # Prepare response using cached names first
+    msg_lines = []
+    live_fetch_tasks = []
+    for acc in accounts:
+        tg_name = acc.get("tg_name")
+        acc_name = acc.get("account")
+        if tg_name:
+            # Use cached name immediately
+            msg_lines.append(f"• {acc_name} - {tg_name}")
+        else:
+            # Schedule live fetch
+            live_fetch_tasks.append(fetch_name_live(acc))
+
+    # Send partial response immediately
+    partial_msg = "📋 Your accounts and Telegram names (cached):\n\n" + "\n".join(msg_lines)
+    await update.message.reply_text(partial_msg)
+
+    # Fetch missing names in background
+    if live_fetch_tasks:
+        results = await asyncio.gather(*live_fetch_tasks)
+        updated_lines = [f"• {acc} - {name}" for acc, name in results if name]
+        if updated_lines:
+            await update.message.reply_text(
+                "📌 Updated names from Telegram:\n\n" + "\n".join(updated_lines)
+            )
 # ---------------- Main ---------------- #
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).post_init(send_startup_message).build()
@@ -1107,6 +1166,7 @@ def main():
     app.add_handler(CommandHandler("get_chat_id", banned_handler(get_chat_id)))
     app.add_handler(CommandHandler("set_chat", banned_handler(set_chat)))
     app.add_handler(CommandHandler("show_chat", banned_handler(show_chat)))
+app.add_handler(CommandHandler("names", banned_handler(names)))
 
     print("🤖 Bot is running...")
     app.run_polling()
@@ -1114,5 +1174,6 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
