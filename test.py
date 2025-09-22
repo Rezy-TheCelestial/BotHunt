@@ -1165,7 +1165,7 @@ def main():
     app.add_handler(CommandHandler("get_chat_id", banned_handler(get_chat_id)))
     app.add_handler(CommandHandler("set_chat", banned_handler(set_chat)))
     app.add_handler(CommandHandler("show_chat", banned_handler(show_chat)))
-            app.add_handler(CommandHandler("names", banned_handler(names)))
+    app.add_handler(CommandHandler("names", banned_handler(names)))
 
     print("🤖 Bot is running...")
     app.run_polling()
@@ -1173,3 +1173,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
