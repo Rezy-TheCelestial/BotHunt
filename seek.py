@@ -16,7 +16,7 @@ import logging
 from typing import Dict, Any, List, Optional
 
 # ---------------- Config ---------------- #
-BOT_TOKEN = "7911063793:AAHu4w4B62wlLRLbA9mG9_GgDIIcfJQtlgE"
+BOT_TOKEN = "8275817464:AAHdHynr99dP1uiyb1UKHnQ6CwhHIdWN1yY"
 OWNER_ID = 5621201759
 NOTIFY_CHAT_ID = -1002526806268
 MONGO_URI = "mongodb://Celestial_Guard:Rrahaman%400000@ac-2aplzlb-shard-00-00.zxzlbns.mongodb.net:27017,ac-2aplzlb-shard-00-01.zxzlbns.mongodb.net:27017,ac-2aplzlb-shard-00-02.zxzlbns.mongodb.net:27017/?ssl=true&replicaSet=atlas-gx9cm9-shard-0&authSource=admin&retryWrites=true&w=majority"
@@ -1608,4 +1608,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
