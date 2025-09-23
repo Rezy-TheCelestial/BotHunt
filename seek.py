@@ -27,8 +27,8 @@ API_ID = 24561470
 API_HASH = "1e2d3c0c1fd09ae41a710d2daea8374b"
 
 # Setup logging
-#logging.basicConfig(level=logging.INFO)
-#logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 mongo_client = MongoClient(MONGO_URI)
 db = mongo_client["telegram_bot_db"]
@@ -250,10 +250,10 @@ async def send_startup_message(app: Application):
                 parse_mode="Markdown"
             )
 
-        #logger.info("✅ Starter message sent successfully!")
+        logger.info("✅ Starter message sent successfully!")
     except Exception as e:
-        None
-        #logger.error(f"❌ Error sending starter message: {e}")
+        
+        logger.error(f"❌ Error sending starter message: {e}")
 
 # ---------------- Commands ---------------- #
 @authorized_only
@@ -1609,6 +1609,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
