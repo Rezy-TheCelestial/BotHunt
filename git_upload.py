@@ -1802,41 +1802,23 @@ async def stop_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     
 async def handle_shiny_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Debug why messages aren't being detected"""
+    """Fixed: Handle shiny messages without blocking hunting"""
     
-    print(f"🔍 MESSAGE RECEIVED!")
-    print(f"📝 Text: {update.message.text if update.message else 'No message'}")
-    print(f"🏠 Chat ID: {update.message.chat.id if update.message else 'No chat'}")
-    print(f"🎯 Target Chat ID: {NOTIFY_CHAT_ID}")
-    print(f"✅ Match: {update.message.chat.id == NOTIFY_CHAT_ID if update.message else 'No'}")
-    
-    if update.message and update.message.text:
-        print(f"🔎 Checking for 'Shiny aaya h account dekho' in text...")
-        print(f"📋 Contains phrase: {'Shiny aaya h account dekho' in update.message.text}")
-    
-    # Check if message exists and is in notify GC
     if (update.message and 
         update.message.chat.id == NOTIFY_CHAT_ID and 
         update.message.text and
         "Shiny aaya h account dekho" in update.message.text):
         
-        print("🎉 CONDITION MET! Sending victory reply...")
+        print("🎉 SHINY DETECTED! Starting non-blocking victory reply...")
         
-        # Get sender info
-        if update.message.from_user:
-            sender_name = update.message.from_user.first_name or "Unknown"
-        else:
-            sender_name = "Someone"
+        sender_name = update.message.from_user.first_name if update.message.from_user else "Hunter"
         
-        # Reply with victory GIF and message
-        await send_victory_reply(update, context, sender_name)
-    else:
-        print("❌ Conditions not met")
-async def send_victory_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, account_name: str):
-    """Reply with monospace professional victory message"""
-    
+        # Use asyncio to run without blocking hunting
+        asyncio.create_task(quick_victory_reply(update, sender_name))
+
+async def quick_victory_reply(update: Update, account_name: str):
+    """Quick non-blocking victory reply using your cool text"""
     try:
-        # 🔥 QUALITY GIFS 🔥
         victory_gifs = [
             "https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif",
             "https://media.giphy.com/media/xULW8N9O5WD32Gc6e4/giphy.gif",
@@ -1844,9 +1826,7 @@ async def send_victory_reply(update: Update, context: ContextTypes.DEFAULT_TYPE,
             "https://media.giphy.com/media/l0HlG8fgsLuUog13a/giphy.gif",
         ]
         
-        gif_url = random.choice(victory_gifs)
-        
-        # 🎯 MONOSPACE PROFESSIONAL MESSAGE
+        # 🎯 USING YOUR COOL VICTORY TEXT 🎯
         victory_text = f"""
 🫧 **WELL DONE SEXY BUDDY!** 🫧
 
@@ -1856,29 +1836,33 @@ async def send_victory_reply(update: Update, context: ContextTypes.DEFAULT_TYPE,
 `Timestamp  : {datetime.now().strftime('%H:%M:%S')}`
 `Hunter     : Elite Status`
 
-⚕️ **Exceptional performance!** 🗽
+🎉 **Exceptional performance!** 🗽
         """
         
-        print(f"🎁 Sending victory reply to {account_name}")
+        print(f"⚡ Sending victory reply to {account_name} (non-blocking)")
         
         await update.message.reply_animation(
-            animation=gif_url,
+            animation=random.choice(victory_gifs),
             caption=victory_text,
             parse_mode="Markdown"
         )
         
     except Exception as e:
-        print(f"❌ Error: {e}")
-        await update.message.reply_text(
-            f"🫧 **WELL DONE SEXY BUDDY!** 🫧 \n\n"
-            f"`Account    : {account_name}`\n"
-            f"`Discovery  : Shiny Pokémon`\n"
-            f"`Status     : Successful Hunt`\n"
-            f"`Timestamp  : {datetime.now().strftime('%H:%M:%S')}`\n"
-            f"`Hunter     : Elite Status`\n\n"
-            f"⚕️ **Exceptional performance!** 🗽",
-            parse_mode="Markdown"
-        )
+        print(f"❌ Quick victory error: {e}")
+        # Fallback with your cool text
+        try:
+            await update.message.reply_text(
+                f"🫧 **WELL DONE SEXY BUDDY!** 🫧\n\n"
+                f"`Account    : {account_name}`\n"
+                f"`Discovery  : Shiny Pokémon`\n"
+                f"`Status     : Successful Hunt`\n"
+                f"`Timestamp  : {datetime.now().strftime('%H:%M:%S')}`\n"
+                f"`Hunter     : Elite Status`\n\n"
+                f"🎉 **Exceptional performance!** 🗽",
+                parse_mode="Markdown"
+            )
+        except:
+            pass  # Silent fail if everything breaks
 
 
 @owner_only
@@ -2005,4 +1989,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
