@@ -2152,11 +2152,115 @@ async def dash_boob(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Error generating dashboard statistics.")
 
 # Add this to your main() function:
+@authorized_only
+async def hunt_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show hunt counts for all accounts sorted by account number"""
+    user_id = update.effective_user.id
+    
+    try:
+        col = user_collection(user_id)
+        accounts = list(col.find({}))
+        
+        if not accounts:
+            await update.message.reply_text("❌ No accounts found.")
+            return
+        
+        # Sort accounts by numeric part (acc1, acc2, acc3...)
+        def get_account_number(acc):
+            try:
+                return int(acc["account"][3:])  # Extract number from "accX"
+            except (ValueError, IndexError):
+                return float('inf')  # Put invalid formats at the end
+        
+        accounts.sort(key=get_account_number)
+        
+        # Fetch Telegram names and hunt counts
+        hunt_data = []
+        total_hunts = 0
+        
+        for acc in accounts:
+            account_name = acc.get('account', 'Unknown')
+            phone = acc.get('phone', 'N/A')
+            session_string = acc.get('session')
+            
+            # Get hunt count from hunting_status
+            account_key = f"{user_id}_{account_name}"
+            hunt_count = hunting_status.get(account_key, {}).get('hunt_count', 0)
+            total_hunts += hunt_count
+            
+            # Get Telegram name (try cached first, then fetch live)
+            tg_name = acc.get('tg_name', '')
+            if not tg_name and session_string:
+                # Fetch live Telegram name
+                try:
+                    app = Client(":memory:", api_id=API_ID, api_hash=API_HASH, session_string=session_string)
+                    await app.start()
+                    me = await app.get_me()
+                    tg_name = f"{me.first_name or ''} {me.last_name or ''}".strip() or me.username or "No Name"
+                    await app.stop()
+                    
+                    # Update cache
+                    col.update_one(
+                        {"_id": acc["_id"]}, 
+                        {"$set": {"tg_name": tg_name}}
+                    )
+                except Exception as e:
+                    tg_name = f"Error: {str(e)}"
+            
+            hunt_data.append({
+                'account': account_name,
+                'tg_name': tg_name,
+                'hunt_count': hunt_count,
+                'phone': phone
+            })
+        
+        # Build the display
+        header = """
+╔══════════════════════════════════════╗
+            HUNT COUNT STATS
+╚══════════════════════════════════════╝
+"""
+        
+        body = ""
+        
+        if total_hunts > 0:
+            body += f"● TOTAL HUNTS: {total_hunts} commands\n\n"
+            
+            for acc in hunt_data:
+                # Truncate long Telegram names
+                display_name = acc['tg_name'][:20] + "..." if len(acc['tg_name']) > 23 else acc['tg_name']
+                percentage = (acc['hunt_count'] / total_hunts * 100) if total_hunts > 0 else 0
+                
+                body += f"• {acc['account']} - {display_name} - {acc['hunt_count']} hunts ({percentage:.1f}%)\n"
+        else:
+            body += "● NO HUNTS RECORDED YET\n\n"
+            for acc in hunt_data:
+                display_name = acc.get('tg_name', 'Not fetched')[:20] + "..." if len(acc.get('tg_name', '')) > 23 else acc.get('tg_name', 'Not fetched')
+                body += f"• {acc['account']} - {display_name} - 0 hunts\n"
+        
+        # Calculate top performer from sorted data
+        top_account = max(hunt_data, key=lambda x: x['hunt_count']) if hunt_data else None
+        
+        footer = f"""
+● ACCOUNTS WITH HUNTS: {sum(1 for acc in hunt_data if acc['hunt_count'] > 0)}/{len(hunt_data)}
+● AVERAGE PER ACCOUNT: {total_hunts/len(hunt_data):.1f} hunts
+● TOP PERFORMER: {top_account['account'] if top_account and top_account['hunt_count'] > 0 else 'N/A'} ({top_account['hunt_count'] if top_account else 0} hunts)
+"""
+        
+        result = header + body + footer
+        await update.message.reply_text(f"```{result}```", parse_mode="Markdown")
+        
+    except Exception as e:
+        logger.error(f"Error in hunt_count: {e}")
+        await update.message.reply_text("❌ Error fetching hunt statistics.")
 
-        
-        
+# Add this to your main() function
+
+
+
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).post_init(send_startup_message).build()
+
 
 
 
@@ -2210,11 +2314,12 @@ def main():
     app.add_handler(CommandHandler("test_permissions", test_permissions))
     app.add_handler(CommandHandler("emergency_unban", emergency_unban))    
     app.add_handler(CommandHandler("dash_boob", banned_handler(dash_boob)))  
-
+    app.add_handler(CommandHandler("hunt_count", banned_handler(hunt_count)))
     print("🤖 Bot is running...")
     app.run_polling()
 
 if __name__ == "__main__":
 
     main()
+
 
