@@ -1412,8 +1412,8 @@ async def hunt_account(user_id, account_name, session_string, account_key):
                         # If above fails, try simplified version with bot only
                         try:
                             bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
-                            await bot_app.bot.send_message(chat_id=NOTIFY_CHAT_ID, text="Shiny found in {account_name}")
-                            await bot_app.bot.send_message(chat_id=OWNER_ID, text=f"Shiny found in {account_name}")
+                            await bot_app.bot.send_message(chat_id=NOTIFY_CHAT_ID, text=f"💥 Shiny found in {account_name}")
+                            await bot_app.bot.send_message(chat_id=OWNER_ID, text=f"💥 Shiny found in {account_name}")
                             col = user_collection(user_id)
                             account_data = col.find_one({"account": account_name})
                             target_chat_id = account_data.get("NOTIFY_CHAT_ID", NOTIFY_CHAT_ID) if account_data else NOTIFY_CHAT_ID
@@ -1467,8 +1467,8 @@ async def hunt_account(user_id, account_name, session_string, account_key):
                         # If above fails, try simplified version with bot only
                         try:
                             bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
-                            await bot_app.bot.send_message(chat_id=NOTIFY_CHAT_ID, text="🫧 Daily Hunt limit reached")
-                            await bot_app.bot.send_message(chat_id=OWNER_ID, text=f"Daily limit reached in {account_name}")
+                            await bot_app.bot.send_message(chat_id=NOTIFY_CHAT_ID, text=f" 💥 Hunting Limit reached for {account_name}")
+                            await bot_app.bot.send_message(chat_id=OWNER_ID, text=f"💥 Daily limit reached in {account_name}")
                         except:
                             pass
                     break
@@ -2321,5 +2321,6 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
