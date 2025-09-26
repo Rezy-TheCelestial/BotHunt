@@ -2304,58 +2304,76 @@ async def system_health(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Health check error: {e}")
         await update.message.reply_text("❌ Error checking system health.")
 
+
+async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Test command without decorators"""
+    await update.message.reply_text("✅ Bot is working!")
 # ---------------- MAIN FUNCTION WITH ALL HANDLERS ---------------- #
 def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).post_init(send_startup_message).build()
-
-    # Start the auto-reset scheduler
+    # Create application with proper configuration
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
     
-    # ✅ FIX: Start the auto-reset scheduler properly
-    app.job_queue.run_repeating(
-        callback=auto_reset_scheduler_wrapper,
-        interval=60,  # Check every 60 seconds
-        first=10      # Start after 10 seconds
-    )
+    # Add startup handler separately
+    async def on_startup(app: Application):
+        await send_startup_message(app)
+        # Start the auto-reset scheduler
+        app.job_queue.run_repeating(
+            callback=auto_reset_scheduler_wrapper,
+            interval=60,
+            first=10
+        )
     
+    # Set up post_init hook
+    app.post_init = on_startup
 
-    # Account login
-    app.add_handler(CommandHandler("start", banned_handler(start)))
-    app.add_handler(CommandHandler("login", banned_handler(login)))
-    app.add_handler(CommandHandler("otp", banned_handler(otp)))
-    app.add_handler(CommandHandler("password", banned_handler(password)))
-    app.add_handler(CommandHandler("solo_start", banned_handler(solo_start)))
-    app.add_handler(CommandHandler("solo_stop", banned_handler(solo_stop)))
-    app.add_handler(CommandHandler("accounts", banned_handler(accounts)))
-    app.add_handler(CommandHandler("change_acc", banned_handler(change_acc)))
-    app.add_handler(CommandHandler("order", banned_handler(order)))
-    app.add_handler(CommandHandler("banlist", banned_handler(banlist)))
-    app.add_handler(CommandHandler("logout", banned_handler(logout)))
-    app.add_handler(CommandHandler("bot_stats", banned_handler(bot_stats)))
-
-    # Callback query handler
-    app.add_handler(CallbackQueryHandler(accounts_callback, pattern="^accounts_"))
-
-    # Admin commands
-    app.add_handler(CommandHandler("auth", banned_handler(auth)))
-    app.add_handler(CommandHandler("unauth", banned_handler(unauth)))
-    app.add_handler(CommandHandler("authlist", banned_handler(authlist)))
-    app.add_handler(CommandHandler("ban", banned_handler(ban)))
-    app.add_handler(CommandHandler("unban", banned_handler(unban)))
-    app.add_handler(CommandHandler("board", banned_handler(board)))
-    app.add_handler(CommandHandler("msg", banned_handler(msg_user)))
-
+    # ========== COMMAND HANDLERS ========== #
+    
+    # Basic commands
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("login", login))
+    app.add_handler(CommandHandler("otp", otp))
+    app.add_handler(CommandHandler("password", password))
+    app.add_handler(CommandHandler("cancel", cancel))
+    
+    # Account management
+    app.add_handler(CommandHandler("accounts", accounts))
+    app.add_handler(CommandHandler("change_acc", change_acc))
+    app.add_handler(CommandHandler("order", order))
+    app.add_handler(CommandHandler("logout", logout))
+    app.add_handler(CommandHandler("names", names))
+    
     # Hunting commands
-    app.add_handler(CommandHandler("start_all", banned_handler(start_all)))
-    app.add_handler(CommandHandler("stop_all", banned_handler(stop_all)))
-    app.add_handler(CommandHandler("get_chat_id", banned_handler(get_chat_id)))
-    app.add_handler(CommandHandler("set_chat", banned_handler(set_chat)))
-    app.add_handler(CommandHandler("show_chat", banned_handler(show_chat)))
-    app.add_handler(CommandHandler("names", banned_handler(names)))
-    app.add_handler(CommandHandler("order_names", order_names))
-    app.add_handler(CommandHandler("reorder", reorder_accounts))
+    app.add_handler(CommandHandler("solo_start", solo_start))
+    app.add_handler(CommandHandler("solo_stop", solo_stop))
+    app.add_handler(CommandHandler("start_all", start_all))
+    app.add_handler(CommandHandler("stop_all", stop_all))
+    app.add_handler(CommandHandler("hunting_status", hunting_status_cmd))
+    
+    # Admin commands
+    app.add_handler(CommandHandler("auth", auth))
+    app.add_handler(CommandHandler("unauth", unauth))
+    app.add_handler(CommandHandler("authlist", authlist))
+    app.add_handler(CommandHandler("ban", ban))
+    app.add_handler(CommandHandler("unban", unban))
+    app.add_handler(CommandHandler("banlist", banlist))
+    app.add_handler(CommandHandler("bot_stats", bot_stats))
+    app.add_handler(CommandHandler("board", board))
+    app.add_handler(CommandHandler("msg", msg_user))
+    
+    # Utility commands
+    app.add_handler(CommandHandler("get_chat_id", get_chat_id))
+    app.add_handler(CommandHandler("set_chat", set_chat))
+    app.add_handler(CommandHandler("show_chat", show_chat))
+    app.add_handler(CommandHandler("dash_boob", dash_boob))
+    app.add_handler(CommandHandler("system_health", system_health))
+    
+    # Forwarding commands
     app.add_handler(CommandHandler("forward", forward))
-    app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(CommandHandler("stop", stop_forward))
+    app.add_handler(CommandHandler("test", test))
+    # Callback handlers
+    app.add_handler(CallbackQueryHandler(accounts_callback, pattern="^accounts_"))
+    app.add_handler(CallbackQueryHandler(button_handler))
     
     # Message handlers
     app.add_handler(MessageHandler(
@@ -2363,20 +2381,20 @@ def main():
         handle_shiny_message
     ))
     
-    # Test commands
-    app.add_handler(CommandHandler("test_shiny_reply", test_shiny_reply))
-    app.add_handler(CommandHandler("debug_messages", debug_messages))
-    app.add_handler(CommandHandler("test_permissions", test_permissions))
-    app.add_handler(CommandHandler("emergency_unban", emergency_unban))    
+    print("🤖 Bot is starting with enhanced configuration...")
     
-    # New improvement commands
-    app.add_handler(CommandHandler("backup", backup_accounts))
-    app.add_handler(CommandHandler("hunting_status", hunting_status_cmd))
-    app.add_handler(CommandHandler("system_health", system_health))
-    app.add_handler(CommandHandler("dash_boob", banned_handler(dash_boob)))  
-
-    print("🤖 Bot is running with enhanced stability and daily hunt tracking...")
-    app.run_polling()
+    # Start polling with error handling
+    try:
+        app.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True,
+            close_loop=False
+        )
+    except Exception as e:
+        logger.error(f"Polling error: {e}")
+        # Attempt restart after delay
+        time.sleep(10)
+        main()  # Recursive restart
 
 if __name__ == "__main__":
     main()
