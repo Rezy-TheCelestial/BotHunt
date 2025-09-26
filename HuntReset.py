@@ -1875,6 +1875,15 @@ async def hunting_status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("❌ Error fetching hunting status.")
 
 # ---------- Auto-Reset Scheduler ---------- #
+async def auto_reset_scheduler_wrapper(context: ContextTypes.DEFAULT_TYPE):
+    """Wrapper for the auto-reset scheduler to work with job queue"""
+    try:
+        # Check and reset daily counts if needed
+        daily_tracker.check_and_reset()
+    except Exception as e:
+        logger.error(f"Error in auto-reset scheduler: {e}")
+
+# Remove or modify the original auto_reset_scheduler function
 async def auto_reset_scheduler():
     """Background task to auto-reset daily counts"""
     while True:
@@ -2300,7 +2309,14 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).post_init(send_startup_message).build()
 
     # Start the auto-reset scheduler
-    asyncio.create_task(auto_reset_scheduler())
+    
+    # ✅ FIX: Start the auto-reset scheduler properly
+    app.job_queue.run_repeating(
+        callback=auto_reset_scheduler_wrapper,
+        interval=60,  # Check every 60 seconds
+        first=10      # Start after 10 seconds
+    )
+    
 
     # Account login
     app.add_handler(CommandHandler("start", banned_handler(start)))
