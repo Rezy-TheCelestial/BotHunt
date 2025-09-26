@@ -23,6 +23,7 @@ from functools import wraps
 from collections import defaultdict
 from dotenv import load_dotenv
 import pytz
+from telegram import Message
 
 # Load environment variables
 load_dotenv()
