@@ -81,17 +81,24 @@ try:
     mongo_client.server_info()  # Test connection
     db = mongo_client["telegram_bot_db"]
     
-    # Create indexes for better performance
+    # FIX DUPLICATE KEY ERROR FIRST
+    try:
+        # Drop the problematic index if it exists
+        db["users"].drop_index("user_id_1")
+        print("✅ Fixed duplicate index issue")
+    except Exception as e:
+        print(f"ℹ️ Index cleanup: {e}")
+    
+    # Create indexes for better performance WITH FIX
+    db["users"].create_index("user_id", unique=True, sparse=True)  # Added sparse=True
     db["auth_users"].create_index("user_id", unique=True)
     db["banned_users"].create_index("user_id", unique=True)
     db["logs"].create_index([("user_id", 1), ("time", -1)])
-    db["users"].create_index("user_id", unique=True)
     
     logger.info("✅ MongoDB connected successfully")
 except Exception as e:
     logger.error(f"❌ MongoDB connection failed: {e}")
     raise
-
 # Dictionary to track hunting status for each account
 hunting_status = {}
 hunting_lock = asyncio.Lock()  # Thread-safe locking
