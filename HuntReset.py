@@ -133,22 +133,37 @@ def rate_limit(limit_per_minute=10):
     return decorator
 
 # ---------------- Database Setup with Error Handling ---------------- #
+# ---------------- Database Setup with Error Handling ---------------- #
 try:
     mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     mongo_client.server_info()  # Test connection
     db = mongo_client["telegram_bot_db"]
     
-    # Create indexes for better performance
-    db["auth_users"].create_index("user_id", unique=True)
-    db["banned_users"].create_index("user_id", unique=True)
-    db["logs"].create_index([("user_id", 1), ("time", -1)])
-    db["users"].create_index("user_id", unique=True)
+    # Try to create indexes, but continue if they already exist
+    try:
+        db["auth_users"].create_index("user_id", unique=True)
+    except Exception as e:
+        logger.info("✅ auth_users index already exists")
+    
+    try:
+        db["banned_users"].create_index("user_id", unique=True)
+    except Exception as e:
+        logger.info("✅ banned_users index already exists")
+    
+    try:
+        db["logs"].create_index([("user_id", 1), ("time", -1)])
+    except Exception as e:
+        logger.info("✅ logs index already exists")
+    
+    try:
+        db["users"].create_index("user_id", unique=True)
+    except Exception as e:
+        logger.info("✅ users index already exists")
     
     logger.info("✅ MongoDB connected successfully")
 except Exception as e:
     logger.error(f"❌ MongoDB connection failed: {e}")
     raise
-
 # Dictionary to track hunting status for each account
 hunting_status = {}
 hunting_lock = asyncio.Lock()  # Thread-safe locking
