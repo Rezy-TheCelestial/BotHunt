@@ -2118,17 +2118,17 @@ async def hunting_status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
             
         active_count = 0
         total_count = len(accounts)
-        status_msg = "🎯 Hunting Status:\n\n"
+        status_msg = "🫧 Hunting Status:\n\n"
         
         for acc in accounts:
             account_key = f"{user_id}_{acc['account']}"
             if account_key in hunting_status and hunting_status[account_key].get('running', False):
-                status = "🟢 ACTIVE"
+                status = "Active ✔️"
                 active_count += 1
                 hunt_count = hunting_status[account_key].get('hunt_count', 0)
                 status_msg += f"• {acc['account']}: {status} ({hunt_count} hunts)\n"
             else:
-                status_msg += f"• {acc['account']}: 🔴 INACTIVE\n"
+                status_msg += f"• {acc['account']}: Inactive ❌\n"
                 
         status_msg += f"\n📊 Summary: {active_count}/{total_count} accounts active"
         await update.message.reply_text(status_msg)
