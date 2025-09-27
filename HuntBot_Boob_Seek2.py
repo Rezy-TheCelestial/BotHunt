@@ -2208,7 +2208,7 @@ async def hunting_status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 hunt_count = hunting_status[account_key].get('hunt_count', 0)
                 status_msg += f"• {acc['account']}: {status} ({hunt_count} hunts)\n"
             else:
-                status_msg += f"• {acc['account']}: Inactive ❌\n"
+                status_msg += f"• {acc['account']}: --- Inactive ❌\n"
                 
         status_msg += f"\n📊 Summary: {active_count}/{total_count} accounts active"
         await update.message.reply_text(status_msg)
