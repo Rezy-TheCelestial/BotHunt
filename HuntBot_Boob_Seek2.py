@@ -1313,42 +1313,71 @@ async def reorder_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------- HUNTING FUNCTIONS (WORKING VERSION) ---------- #
 @rate_limit(6)
 @authorized_only
-async def solo_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start hunting for a specific account"""
+async def start_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start hunting for all accounts - FAST PARALLEL VERSION"""
     user_id = update.effective_user.id
     if not is_owner(user_id):
         await update.message.reply_text("❌ Only the owner can use this command.")
         return
         
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /solo_start <account_number_or_phone>")
-        return
-        
-    target = context.args[0]
     col = user_collection(user_id)
     accounts_list = list(col.find({}))
     
-    # Find the account by account name or phone number
-    account_to_start = None
-    for acc in accounts_list:
-        if acc["account"] == target or acc["phone"] == target:
-            account_to_start = acc
-            break
-            
-    if not account_to_start:
-        await update.message.reply_text("❌ No matching account found.")
+    if not accounts_list:
+        await update.message.reply_text("❌ You have no logged-in accounts.")
         return
         
-    # Start hunting for this account
-    result = await start_hunting_for_account(user_id, account_to_start['account'], account_to_start['session'])
-    await update.message.reply_text(result)
-
-
-
-async def start_hunting_for_account(user_id, account_name, session_string):
-    """Start hunting for a specific account - WORKING VERSION"""
-    account_key = f"{user_id}_{account_name}"
+    # Send initial message
+    progress_msg = await update.message.reply_text("🚀 Starting all accounts in parallel...")
     
+    # Filter out already running accounts and prepare tasks
+    tasks = []
+    accounts_to_start = []
+    
+    for account in accounts_list:
+        account_key = f"{user_id}_{account['account']}"
+        
+        # Skip if already running
+        if account_key in hunting_status and hunting_status[account_key].get('running', False):
+            continue
+            
+        accounts_to_start.append(account)
+        # Create task for each account
+        task = asyncio.create_task(
+            start_account_parallel(user_id, account['account'], account['session'], account_key)
+        )
+        tasks.append(task)
+    
+    if not tasks:
+        await progress_msg.edit_text("✅ All accounts are already running!")
+        return
+    
+    # Start ALL accounts simultaneously
+    await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Wait a moment for threads to initialize
+    await asyncio.sleep(2)
+    
+    # Count successfully started accounts
+    successful_starts = sum(1 for account in accounts_to_start 
+                           if hunting_status.get(f"{user_id}_{account['account']}", {}).get('running', False))
+    
+    message = f"⚡ **PARALLEL START COMPLETE**\n\n"
+    message += f"✅ Successfully started: `{successful_starts}` accounts\n"
+    message += f"📊 Total accounts: `{len(accounts_list)}`\n"
+    message += f"⚡ Speed: Instant parallel start"
+    
+    await progress_msg.edit_text(message, parse_mode="Markdown")
+    
+    # Force status refresh
+    if successful_starts > 0:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="💫 Use /accounts to check hunting status"
+        )
+
+async def start_account_parallel(user_id, account_name, session_string, account_key):
+    """Start a single account in parallel - FAST VERSION"""
     if account_key in hunting_status and hunting_status[account_key]['running']:
         return f"❌ {account_name} is already hunting!"
     
@@ -1360,21 +1389,20 @@ async def start_hunting_for_account(user_id, account_name, session_string):
         'hunt_count': 0
     }
     
-    # Start hunting in a separate thread - SIMPLE APPROACH
+    # Start hunting in a separate thread - NO DELAY
     try:
         thread = threading.Thread(
-            target=run_hunt_sync,  # Use sync wrapper
+            target=run_hunt_sync,
             args=(user_id, account_name, session_string, account_key),
             daemon=True,
             name=f"Hunter-{account_name}"
         )
         thread.start()
-        
-        return f"✅ Started hunting for {account_name}!"
+        return f"✅ Started {account_name}"
     except Exception as e:
         hunting_status[account_key]['running'] = False
-        return f"❌ Failed to start hunting: {e}"
-
+        return f"❌ Failed to start {account_name}: {e}"
+        
 async def stop_hunting_for_account(user_id, account_name):
     """Stop hunting for a specific account"""
     account_key = f"{user_id}_{account_name}"
@@ -1515,23 +1543,24 @@ async def send_owner_notification(message):
 
 
 async def hunt_account_working(user_id, account_name, session_string, account_key):
-    """WORKING hunting function"""
+    """OPTIMIZED hunting function - FASTER START"""
     app = Client(f"hunter_{user_id}_{account_name}", api_id=API_ID, api_hash=API_HASH, session_string=session_string)
     
     try:
         await app.start()
-        logger.info(f"🎯 Hunting ACTUALLY started for {account_name}")
+        logger.info(f"🎯 Hunting STARTED for {account_name}")
         
-        # Get the bot entity
+        # Get the bot entity - FASTER
         bot_entity = await app.get_users('HeXamonbot')
         
-        # TEST: Send a message to confirm it's working
-        
+        # Immediate first hunt - NO INITIAL DELAY
+        await app.send_message(bot_entity.id, '/hunt')
+        hunting_status[account_key]['hunt_count'] += 1
         
         # Main hunting loop
         while hunting_status[account_key]['running'] and not hunting_status[account_key]['stop_requested']:
             if hunting_status[account_key]['paused']:
-                await asyncio.sleep(3)
+                await asyncio.sleep(1)  # Reduced pause delay
                 continue
                 
             try:
@@ -1539,38 +1568,33 @@ async def hunt_account_working(user_id, account_name, session_string, account_ke
                 await app.send_message(bot_entity.id, '/hunt')
                 hunting_status[account_key]['hunt_count'] += 1
                 
-                # Log every 5 hunts
-                if hunting_status[account_key]['hunt_count'] % 5 == 0:
+                # Log every 10 hunts instead of 5 (reduce logging overhead)
+                if hunting_status[account_key]['hunt_count'] % 10 == 0:
                     logger.info(f"🔍 {account_name} completed {hunting_status[account_key]['hunt_count']} hunts")
                 
-                # Check for messages
-                async for message in app.get_chat_history(bot_entity.id, limit=3):
+                # Check for messages - OPTIMIZED
+                async for message in app.get_chat_history(bot_entity.id, limit=2):  # Reduced from 3 to 2
                     if hasattr(message, 'text') and message.text:
                         # Check for shiny
                         if '✨ Shiny Pokémon found!' in message.text:
                             logger.info(f"🎉 SHINY FOUND in {account_name}!")
                             hunting_status[account_key]['running'] = False
-                            
-                            # Send notification
                             await send_shiny_notification_working(user_id, account_name, account_key, app)
                             break
                             
                         # Check for daily limit
-                        # Check for daily limit
                         if 'Daily hunt limit reached' in message.text:
                             logger.info(f"🫧 Daily limit reached for {account_name}")
                             hunting_status[account_key]['running'] = False
-                            
-                            # Send notification - THIS SHOULD CALL THE UPDATED FUNCTION
                             await send_limit_notification_working(user_id, account_name, account_key, app)
                             break
                 
-                # Random delay
-                await asyncio.sleep(random.randint(3, 5))
+                # Reduced random delay (2-4 seconds instead of 3-5)
+                await asyncio.sleep(random.randint(2, 4))
                 
             except Exception as e:
                 logger.error(f"Error in hunting loop for {account_name}: {e}")
-                await asyncio.sleep(5)
+                await asyncio.sleep(3)  # Reduced error delay
                 
     except Exception as e:
         logger.error(f"Failed to start hunting for {account_name}: {e}")
@@ -2226,7 +2250,7 @@ async def hunting_status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
         for acc in accounts:
             account_key = f"{user_id}_{acc['account']}"
             if account_key in hunting_status and hunting_status[account_key].get('running', False):
-                status = "Active ✔️"
+                status = " --- Active ✔️"
                 active_count += 1
                 hunt_count = hunting_status[account_key].get('hunt_count', 0)
                 status_msg += f"• {acc['account']}: {status} ({hunt_count} hunts)\n"
