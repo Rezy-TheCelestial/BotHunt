@@ -11,7 +11,7 @@ commands:
   package:
     - "nano inxi"
   start:
-    - "python3 Hunt_improve.py"
+    - "python3 Hunt_Improve.py"
 
 env:
   ENVIRONMENT: "production"
