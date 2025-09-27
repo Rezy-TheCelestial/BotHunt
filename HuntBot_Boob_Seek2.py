@@ -1311,6 +1311,124 @@ async def reorder_accounts(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------- Hunting Functions (Improved) ---------- #
 
 # ---------- HUNTING FUNCTIONS (WORKING VERSION) ---------- #
+# ---------- HUNTING FUNCTIONS (FAST PARALLEL VERSION) ---------- #
+@rate_limit(6)
+@authorized_only
+async def solo_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start hunting for a specific account"""
+    user_id = update.effective_user.id
+    if not is_owner(user_id):
+        await update.message.reply_text("❌ Only the owner can use this command.")
+        return
+        
+    if not context.args:
+        await update.message.reply_text("❌ Usage: /solo_start <account_number_or_phone>")
+        return
+        
+    target = context.args[0]
+    col = user_collection(user_id)
+    accounts_list = list(col.find({}))
+    
+    # Find the account by account name or phone number
+    account_to_start = None
+    for acc in accounts_list:
+        if acc["account"] == target or acc["phone"] == target:
+            account_to_start = acc
+            break
+            
+    if not account_to_start:
+        await update.message.reply_text("❌ No matching account found.")
+        return
+        
+    # Start hunting for this account
+    result = await start_hunting_for_account(user_id, account_to_start['account'], account_to_start['session'])
+    await update.message.reply_text(result)
+
+@rate_limit(6)
+@authorized_only
+async def solo_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Stop hunting for a specific account"""
+    user_id = update.effective_user.id
+    if not is_owner(user_id):
+        await update.message.reply_text("❌ Only the owner can use this command.")
+        return
+        
+    if not context.args:
+        await update.message.reply_text("❌ Usage: /solo_stop <account_number_or_phone>")
+        return
+        
+    target = context.args[0]
+    col = user_collection(user_id)
+    accounts_list = list(col.find({}))
+    
+    # Find the account by account name or phone number
+    account_to_stop = None
+    for acc in accounts_list:
+        if acc["account"] == target or acc["phone"] == target:
+            account_to_stop = acc
+            break
+            
+    if not account_to_stop:
+        await update.message.reply_text("❌ No matching account found.")
+        return
+        
+    # Stop hunting for this account
+    result = await stop_hunting_for_account(user_id, account_to_stop['account'])
+    await update.message.reply_text(result)
+
+async def start_hunting_for_account(user_id, account_name, session_string):
+    """Start hunting for a specific account - WORKING VERSION"""
+    account_key = f"{user_id}_{account_name}"
+    
+    if account_key in hunting_status and hunting_status[account_key]['running']:
+        return f"❌ {account_name} is already hunting!"
+    
+    # Initialize hunting status
+    hunting_status[account_key] = {
+        'running': True,
+        'paused': False,
+        'stop_requested': False,
+        'hunt_count': 0
+    }
+    
+    # Start hunting in a separate thread - SIMPLE APPROACH
+    try:
+        thread = threading.Thread(
+            target=run_hunt_sync,  # Use sync wrapper
+            args=(user_id, account_name, session_string, account_key),
+            daemon=True,
+            name=f"Hunter-{account_name}"
+        )
+        thread.start()
+        
+        return f"✅ Started hunting for {account_name}!"
+    except Exception as e:
+        hunting_status[account_key]['running'] = False
+        return f"❌ Failed to start hunting: {e}"
+
+async def stop_hunting_for_account(user_id, account_name):
+    """Stop hunting for a specific account"""
+    account_key = f"{user_id}_{account_name}"
+    
+    if account_key not in hunting_status:
+        return f"❌ {account_name} is not currently hunting!"
+    
+    if not hunting_status[account_key]['running']:
+        return f"❌ {account_name} is not currently hunting!"
+    
+    # Set stop requested flag
+    hunting_status[account_key]['stop_requested'] = True
+    
+    # Wait a moment for the hunting loop to detect the stop request
+    await asyncio.sleep(1)
+    
+    # Double check if it's still running
+    if hunting_status[account_key]['running']:
+        # Force stop if it didn't stop gracefully
+        hunting_status[account_key]['running'] = False
+    
+    return f"✅ Stopped hunting for {account_name}!"
+
 @rate_limit(6)
 @authorized_only
 async def start_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1402,91 +1520,7 @@ async def start_account_parallel(user_id, account_name, session_string, account_
     except Exception as e:
         hunting_status[account_key]['running'] = False
         return f"❌ Failed to start {account_name}: {e}"
-        
-async def stop_hunting_for_account(user_id, account_name):
-    """Stop hunting for a specific account"""
-    account_key = f"{user_id}_{account_name}"
-    
-    if account_key not in hunting_status:
-        return f"❌ {account_name} is not currently hunting!"
-    
-    if not hunting_status[account_key]['running']:
-        return f"❌ {account_name} is not currently hunting!"
-    
-    # Set stop requested flag
-    hunting_status[account_key]['stop_requested'] = True
-    
-    # Wait a moment for the hunting loop to detect the stop request
-    await asyncio.sleep(1)
-    
-    # Double check if it's still running
-    if hunting_status[account_key]['running']:
-        # Force stop if it didn't stop gracefully
-        hunting_status[account_key]['running'] = False
-    
-    return f"✅ Stopped hunting for {account_name}!"
 
-@rate_limit(6)
-@authorized_only
-async def solo_stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Stop hunting for a specific account"""
-    user_id = update.effective_user.id
-    if not is_owner(user_id):
-        await update.message.reply_text("❌ Only the owner can use this command.")
-        return
-        
-    if not context.args:
-        await update.message.reply_text("❌ Usage: /solo_stop <account_number_or_phone>")
-        return
-        
-    target = context.args[0]
-    col = user_collection(user_id)
-    accounts_list = list(col.find({}))
-    
-    # Find the account by account name or phone number
-    account_to_stop = None
-    for acc in accounts_list:
-        if acc["account"] == target or acc["phone"] == target:
-            account_to_stop = acc
-            break
-            
-    if not account_to_stop:
-        await update.message.reply_text("❌ No matching account found.")
-        return
-        
-    # Stop hunting for this account
-    result = await stop_hunting_for_account(user_id, account_to_stop['account'])
-    await update.message.reply_text(result)
-
-# Ensure proper chat ID handling for notifications
-async def send_notification(chat_id, message):
-    try:
-        # Resolve chat ID properly
-        if isinstance(chat_id, str):
-            chat_id = int(chat_id) if chat_id.lstrip('-').isdigit() else chat_id
-        
-        # Send message with notification
-        await app.send_message(
-            chat_id=chat_id,
-            text=message,
-            disable_notification=False  # Ensure notifications are enabled
-        )
-    except Exception as e:
-        print(f"Notification error: {e}")
-        # Fallback: try alternative chat ID format
-        try:
-            await app.send_message(
-                chat_id=int(chat_id),
-                text=message
-            )
-        except:
-            pass
-            
-            
-            
-            
-            
-            
 def run_hunt_sync(user_id, account_name, session_string, account_key):
     """Sync wrapper for hunting function"""
     try:
@@ -1497,50 +1531,6 @@ def run_hunt_sync(user_id, account_name, session_string, account_key):
     except Exception as e:
         logger.error(f"Hunting error for {account_name}: {e}")
         hunting_status[account_key]['running'] = False
-
-
-
-async def send_hunt_notification(chat_id, message):
-    """Send notification using the main bot instance"""
-    try:
-        # Convert chat_id to integer if it's a string
-        if isinstance(chat_id, str):
-            try:
-                chat_id = int(chat_id)
-            except ValueError:
-                pass
-        
-        # Use the global main_bot_app
-        global main_bot_app
-        if main_bot_app:
-            await main_bot_app.bot.send_message(
-                chat_id=chat_id,
-                text=message,
-                disable_notification=False
-            )
-            logger.info(f"✅ Notification sent to {chat_id}")
-        else:
-            logger.error("❌ main_bot_app not initialized")
-    except Exception as e:
-        logger.error(f"❌ Hunt notification failed: {e}")
-
-async def send_owner_notification(message):
-    """Send notification to owner using main bot"""
-    try:
-        global main_bot_app
-        if main_bot_app:
-            await main_bot_app.bot.send_message(OWNER_ID, message)
-            logger.info(f"✅ Owner notification sent")
-        else:
-            logger.error("❌ main_bot_app not initialized")
-    except Exception as e:
-        logger.error(f"❌ Owner notification failed: {e}")
-        
-        
-        
-
-
-
 
 async def hunt_account_working(user_id, account_name, session_string, account_key):
     """OPTIMIZED hunting function - FASTER START"""
@@ -1605,6 +1595,31 @@ async def hunt_account_working(user_id, account_name, session_string, account_ke
         except:
             pass
 
+@rate_limit(6)
+@authorized_only
+async def stop_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Stop hunting for all accounts"""
+    user_id = update.effective_user.id
+    if not is_owner(user_id):
+        await update.message.reply_text("❌ Only the owner can use this command.")
+        return
+        
+    col = user_collection(user_id)
+    accounts_list = list(col.find({}))
+    
+    if not accounts_list:
+        await update.message.reply_text("❌ You have no logged-in accounts.")
+        return
+        
+    stopped_count = 0
+    for account in accounts_list:
+        account_key = f"{user_id}_{account['account']}"
+        if account_key in hunting_status and hunting_status[account_key]['running']:
+            hunting_status[account_key]['stop_requested'] = True
+            stopped_count += 1
+            
+    await update.message.reply_text(f"🛑 Stopping hunting for {stopped_count} accounts...")
+
 async def send_shiny_notification_working(user_id, account_name, account_key, app):
     """Send shiny notification - FIXED VERSION"""
     try:
@@ -1661,92 +1676,14 @@ async def send_limit_notification_working(user_id, account_name, account_key, ap
     except Exception as e:
         logger.error(f"❌ Limit notification failed: {e}")
 
-@rate_limit(6)
-@authorized_only
-async def start_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start hunting for all accounts - WORKING VERSION"""
-    user_id = update.effective_user.id
-    if not is_owner(user_id):
-        await update.message.reply_text("❌ Only the owner can use this command.")
-        return
-        
-    col = user_collection(user_id)
-    accounts_list = list(col.find({}))
+
     
-    if not accounts_list:
-        await update.message.reply_text("❌ You have no logged-in accounts.")
-        return
-        
-    started_count = 0
-    already_running = 0
-    
-    for account in accounts_list:
-        account_key = f"{user_id}_{account['account']}"
-        
-        # Skip if already running
-        if account_key in hunting_status and hunting_status[account_key].get('running', False):
-            already_running += 1
-            continue
             
-        try:
-            result = await start_hunting_for_account(user_id, account['account'], account['session'])
-            if "Started" in result:
-                started_count += 1
-            await asyncio.sleep(0.5)  # Small delay between starts
+            
+            
+            
                 
-        except Exception as e:
-            logger.error(f"Failed to start {account['account']}: {e}")
-    
-    # Update status immediately
-    await asyncio.sleep(2)  # Give threads time to initialize
-    
-    message = f"🔰 Aᴜᴛᴏ Hᴜɴᴛ:\n"
-    message += f"✅ Newly started: {started_count} accounts\n"
-    message += f"🔄 Already running: {already_running} accounts\n"
-    message += f"📊 Total hunting: {started_count + already_running}/{len(accounts_list)}"
-    
-    await update.message.reply_text(message)
-    
-    # Force status refresh
-    if started_count > 0:
-        await context.bot.send_message(
-            chat_id=user_id,
-            text="💫 Use /accounts to check hunting status"
-        )
-
-@rate_limit(6)
-@authorized_only
-async def stop_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Stop hunting for all accounts"""
-    user_id = update.effective_user.id
-    if not is_owner(user_id):
-        await update.message.reply_text("❌ Only the owner can use this command.")
-        return
-        
-    col = user_collection(user_id)
-    accounts_list = list(col.find({}))
-    
-    if not accounts_list:
-        await update.message.reply_text("❌ You have no logged-in accounts.")
-        return
-        
-    stopped_count = 0
-    for account in accounts_list:
-        account_key = f"{user_id}_{account['account']}"
-        if account_key in hunting_status and hunting_status[account_key]['running']:
-            hunting_status[account_key]['stop_requested'] = True
-            stopped_count += 1
-            
-    await update.message.reply_text(f"🛑 Stopping hunting for {stopped_count} accounts...")
-
-
-
-
-
-
-
-
-
+                
 
 
 
