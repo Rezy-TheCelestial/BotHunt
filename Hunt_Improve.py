@@ -1608,7 +1608,7 @@ async def send_shiny_notification_working(user_id, account_name, account_key, ap
         target_chat_id = account_data.get("NOTIFY_CHAT_ID", NOTIFY_CHAT_ID) if account_data else NOTIFY_CHAT_ID
         
         # Use the fixed notification function (NOT the hunting account's app)
-        await send_hunt_notification(target_chat_id, f"🎉 SHINY FOUND in {account_name}!")  # Changed message
+      # Changed message
         try:
             # Send message from the hunting account
             await app.send_message(
@@ -1635,7 +1635,6 @@ async def send_limit_notification_working(user_id, account_name, account_key, ap
         target_chat_id = account_data.get("NOTIFY_CHAT_ID", NOTIFY_CHAT_ID) if account_data else NOTIFY_CHAT_ID
         
         # 1. Send notification using the bot (as before)
-        await send_hunt_notification(target_chat_id, f"💥 Done Hunting -  {account_name}")
         
         # 2. ALSO send message from the hunting account itself to the notify GC
         try:
