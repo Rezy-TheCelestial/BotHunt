@@ -6,3 +6,4 @@ psutil==5.9.6
 pytz==2023.3
 TgCrypto==1.2.5
 apscheduler==3.10.4
+telethon==1.28.5
